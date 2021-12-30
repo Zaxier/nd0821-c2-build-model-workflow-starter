@@ -9,12 +9,14 @@ import shutil
 import matplotlib.pyplot as plt
 
 import mlflow
+from mlflow.models import infer_signature
 import json
 
 import pandas as pd
 import numpy as np
-from sklearn.compose import ColumnTransformer
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.compose import ColumnTransformer  # ColumnTransformer: Applies transformers to columns of 
+    # an array or pandas DataFrame. compose: Meta-estimators for building composite models with transformers.
+from sklearn.feature_extraction.text import TfidfVectorizer 
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, FunctionTransformer
@@ -68,6 +70,9 @@ def go(args):
 
     logger.info("Preparing sklearn pipeline")
 
+    # get_inference_pipiline() returns a Pipeline of transforms with a final estimator,
+    #   and the processed features as a List. Each transform in a Pipeline implements
+    #   `fit` and `transform`, although the final estimator only needs to implement `fit`.
     sk_pipe, processed_features = get_inference_pipeline(rf_config, args.max_tfidf_features)
 
     # Then fit it to the X_train, y_train data
@@ -75,7 +80,8 @@ def go(args):
 
     ######################################
     # Fit the pipeline sk_pipe by calling the .fit method on X_train and y_train
-    # YOUR CODE HERE
+    sk_pipe.fit(X_train, y_train)
+
     ######################################
 
     # Compute r2 and MAE
@@ -95,9 +101,18 @@ def go(args):
         shutil.rmtree("random_forest_dir")
 
     ######################################
+    # Infer the signature of the model
+    signature = infer_signature(X_val, y_pred)
+    export_path = os.path.join("random_forest_dir")
+
     # Save the sk_pipe pipeline as a mlflow.sklearn model in the directory "random_forest_dir"
-    # HINT: use mlflow.sklearn.save_model
-    # YOUR CODE HERE
+    mlflow.sklearn.save_model(
+        sk_pipe,
+        export_path,
+        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+        signature=signature,
+        input_example=X_val.iloc[:2],
+    )
     ######################################
 
     ######################################
@@ -106,17 +121,34 @@ def go(args):
     # type, provide a description and add rf_config as metadata. Then, use the .add_dir method of the artifact instance
     # you just created to add the "random_forest_dir" directory to the artifact, and finally use
     # run.log_artifact to log the artifact to the run
-    # YOUR CODE HERE
+
+    # wandb.Artifact(
+    #   name: str,
+    #   type: str,
+    #   description: Optional[str] = None,
+    #   metadata: Optional[dict] = None,
+    #   incremental: Optional[bool] = None,
+    #   use_as: Optional[str] = None
+    # ) -> None
+    artifact = wandb.Artifact(
+        args.output_artifact,
+        type="model_export",
+        description="Random Forest pipeline export",
+        metadata={
+            "rf_config": rf_config,
+            "max_tfidf_features": args.max_tfidf_features,
+        },
+    )
+    artifact.add_dir(export_path)
+    run.log_artifact(artifact)
     ######################################
 
     # Plot feature importance
     fig_feat_imp = plot_feature_importance(sk_pipe, processed_features)
 
     ######################################
-    # Here we save r_squared under the "r2" key
     run.summary['r2'] = r_squared
-    # Now log the variable "mae" under the key "mae".
-    # YOUR CODE HERE
+    run.summary['mae'] = mae
     ######################################
 
     # Upload to W&B the feture importance visualization
@@ -144,9 +176,7 @@ def plot_feature_importance(pipe, feat_names):
 
 
 def get_inference_pipeline(rf_config, max_tfidf_features):
-    # Let's handle the categorical features first
-    # Ordinal categorical are categorical values for which the order is meaningful, for example
-    # for room type: 'Entire home/apt' > 'Private room' > 'Shared room'
+    # room_type is ordinal: 'Entire home/apt' > 'Private room' > 'Shared room'
     ordinal_categorical = ["room_type"]
     non_ordinal_categorical = ["neighbourhood_group"]
     # NOTE: we do not need to impute room_type because the type of the room
@@ -155,14 +185,11 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
     ordinal_categorical_preproc = OrdinalEncoder()
 
     ######################################
-    # Build a pipeline with two steps:
-    # 1 - A SimpleImputer(strategy="most_frequent") to impute missing values
-    # 2 - A OneHotEncoder() step to encode the variable
-    non_ordinal_categorical_preproc = # YOUR CODE HERE
+    non_ordinal_categorical_preproc = make_pipeline(SimpleImputer(strategy="most_frequent"), OneHotEncoder())
     ######################################
 
-    # Let's impute the numerical columns to make sure we can handle missing values
-    # (note that we do not scale because the RF algorithm does not need that)
+    # Impute the numerical columns to make sure we can handle missing values
+    # (We do not scale because the RF algorithm does not need scaling)
     zero_imputed = [
         "minimum_nights",
         "number_of_reviews",
@@ -172,7 +199,9 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
         "longitude",
         "latitude"
     ]
-    zero_imputer = SimpleImputer(strategy="constant", fill_value=0)
+    zero_imputer = SimpleImputer(strategy="constant", fill_value=0) 
+    # SimpleImputer(): an imputation Transformer with options strategy= "mean", "median", "most_frequent" or "constant".
+    #   When strategy == "constant", fill_value replaces missing values.
 
     # A MINIMAL FEATURE ENGINEERING step:
     # we create a feature that represents the number of days passed since the last review
@@ -185,7 +214,8 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
 
     # Some minimal NLP for the "name" column
     reshape_to_1d = FunctionTransformer(np.reshape, kw_args={"newshape": -1})
-    name_tfidf = make_pipeline(
+    
+    name_tfidf = make_pipeline( # Short-hand for the Pipeline constructor - you can't explicitly name the steps
         SimpleImputer(strategy="constant", fill_value=""),
         reshape_to_1d,
         TfidfVectorizer(
@@ -196,9 +226,9 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
     )
 
     # Let's put everything together
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ("ordinal_cat", ordinal_categorical_preproc, ordinal_categorical),
+    preprocessor = ColumnTransformer( # Applies transformers to columns of an array or pandas DataFrame
+        transformers=[ # List of (name, transformer, columns) tuples
+            ("ordinal_cat", ordinal_categorical_preproc, ordinal_categorical), 
             ("non_ordinal_cat", non_ordinal_categorical_preproc, non_ordinal_categorical),
             ("impute_zero", zero_imputer, zero_imputed),
             ("transform_date", date_imputer, ["last_review"]),
@@ -210,14 +240,16 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
     processed_features = ordinal_categorical + non_ordinal_categorical + zero_imputed + ["last_review", "name"]
 
     # Create random forest
-    random_Forest = RandomForestRegressor(**rf_config)
+    random_forest = RandomForestRegressor(**rf_config)
 
     ######################################
-    # Create the inference pipeline. The pipeline must have 2 steps: a step called "preprocessor" applying the
-    # ColumnTransformer instance that we saved in the `preprocessor` variable, and a step called "random_forest"
-    # with the random forest instance that we just saved in the `random_forest` variable.
-    # HINT: Use the explicit Pipeline constructor so you can assign the names to the steps, do not use make_pipeline
-    sk_pipe = # YOUR CODE HERE
+    # Create the inference pipeline
+    sk_pipe = Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            ("random_forest", random_forest),
+        ]
+    )
 
     return sk_pipe, processed_features
 
