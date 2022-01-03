@@ -1,3 +1,7 @@
+"""
+Contains pytest fixtures to be used in tests
+"""
+
 import pytest
 import pandas as pd
 import wandb

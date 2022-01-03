@@ -13,6 +13,7 @@ logger = logging.getLogger()
 
 
 def go(args):
+    '''Runs basic_cleaning component'''
 
     run = wandb.init(project="nyc_airbnb", job_type="basic_cleaning")
     run.config.update(args)
@@ -33,7 +34,8 @@ def go(args):
     df['last_review'] = pd.to_datetime(df['last_review'])
 
     # Filter to appropriate geo-location
-    idx = df['longitude'].between(-74.25, -73.50) & df['latitude'].between(40.5, 41.2)
+    idx = df['longitude'].between(-74.25, -
+                                  73.50) & df['latitude'].between(40.5, 41.2)
     df = df[idx].copy()
 
     logger.info("Saving and uploading artifact to W&B")
@@ -47,57 +49,51 @@ def go(args):
     run.log_artifact(artifact)
 
 
-
-
-
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="This step cleans the data")
 
-
     parser.add_argument(
-        "--input_artifact", 
+        "--input_artifact",
         type=str,
         help="The input artifact",
         required=True
     )
 
     parser.add_argument(
-        "--output_artifact", 
+        "--output_artifact",
         type=str,
         help="The name of the output artifact",
         required=True
     )
 
     parser.add_argument(
-        "--output_type", 
+        "--output_type",
         type=str,
         help="The type of the output artifact",
         required=True
     )
 
     parser.add_argument(
-        "--output_description", 
+        "--output_description",
         type=str,
         help="A description for the output artifact",
         required=True
     )
 
     parser.add_argument(
-        "--min_price", 
+        "--min_price",
         type=float,
         help="The minimum price to consider",
         required=True
     )
 
     parser.add_argument(
-        "--max_price", 
+        "--max_price",
         type=float,
         help="The maximum price to consider",
         required=True
     )
-
 
     args = parser.parse_args()
 

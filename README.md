@@ -1,7 +1,10 @@
 # An ML Pipeline for Short-Term Rental Prices in NYC 
-This repo implements forks a Udacity ML pipeline repo to build a repeatable ML pipeline for predicting 
-rental prices for airbnb in NYC. The focus is MLops and infrastructure-as-code to create a reproducible 
-model workflow.
+This repo forks a Udacity ML pipeline repo to build a repeatable ML pipeline for predicting 
+rental prices for airbnb in NYC. The focus for the project is MLops and infrastructure-as-code
+and it leverages the following MLops/DevOps tools:
+- [Weight and Biases](https://wandb.ai/) for experiment and artifact tracking
+- [MLflow](https://mlflow.org/) for environment separation and orchestration
+- [Hydra](https://hydra.cc/docs/intro/) for top-level configuration and command-line flexibility
 
 ## Table of contents
 
@@ -10,21 +13,11 @@ model workflow.
   * [Get API key for Weights and Biases](#get-api-key-for-weights-and-biases)
   * [Cookie cutter](#cookie-cutter)
   * [The configuration](#the-configuration)
+- [Running the pipeline](#running-the-pipeline)
   * [Running the entire pipeline or just a selection of steps](#Running-the-entire-pipeline-or-just-a-selection-of-steps)
   * [Pre-existing components](#pre-existing-components)
-- [Instructions](#instructions)
-  * [Exploratory Data Analysis (EDA)](#exploratory-data-analysis-eda)
-  * [Data cleaning](#data-cleaning)
-  * [Data testing](#data-testing)
-  * [Data splitting](#data-splitting)
-  * [Train Random Forest](#train-random-forest)
-  * [Optimize hyperparameters](#optimize-hyperparameters)
-  * [Select the best model](#select-the-best-model)
-  * [Test](#test)
-  * [Visualize the pipeline](#visualize-the-pipeline)
-  * [Release the pipeline](#release-the-pipeline)
-  * [Train the model on a new data sample](#train-the-model-on-a-new-data-sample)
-- [Cleaning up](#cleaning-up)
+- [Adding to the pipeline](#adding-to-the-pipeline)
+- [In case of errors](#in-case-of-errors)
 
 ## Preliminary steps
 
@@ -153,6 +146,9 @@ You can see the parameters that they require by looking into their `MLproject` f
 - `get_data`: downloads the data. [MLproject](https://github.com/udacity/nd0821-c2-build-model-workflow-starter/blob/master/components/get_data/MLproject)
 - `train_val_test_split`: segrgate the data (splits the data) [MLproject](https://github.com/udacity/nd0821-c2-build-model-workflow-starter/blob/master/components/train_val_test_split/MLproject)
 
+## Adding to the pipeline
+
+
 ## In case of errors
 When you make an error writing your `conda.yml` file, you might end up with an environment for the pipeline or one
 of the components that is corrupted. Most of the time `mlflow` realizes that and creates a new one every time you try
@@ -174,65 +170,9 @@ If you are ok with that list, execute this command to clean them up:
 
 This will iterate over all the environments created by `mlflow` and remove them.
 
-
-## Instructions
-
-The pipeline is defined in the ``main.py`` file in the root of the starter kit. The file already
-contains some boilerplate code as well as the download step. Your task will be to develop the
-needed additional step, and then add them to the ``main.py`` file.
-
-__*NOTE*__: the modeling in this exercise should be considered a baseline. We kept the data cleaning and the modeling 
-simple because we want to focus on the MLops aspect of the analysis. It is possible with a little more effort to get
-a significantly-better model for this dataset.
-
-
-Visualize the pipeline
-Release the pipeline
-
-
-First copy the best hyper parameters you found in your ``configuration.yml`` so they become the
-default values. Then, go to your repository on GitHub and make a release. 
-If you need a refresher, here are some [instructions](https://docs.github.com/en/github/administering-a-repository/managing-releases-in-a-repository#creating-a-release)
-on how to release on GitHub.
-
-Call the release ``1.0.0``:
-
-![tag the release](images/tag-release-github.png "tag the release")
-
-If you find problems in the release, fix them and then make a new release like ``1.0.1``, ``1.0.2``
-and so on.
-
-### Train the model on a new data sample
-
-Let's now test that we can run the release using ``mlflow`` without any other pre-requisite. We will
-train the model on a new sample of data that our company received (``sample2.csv``):
-
-(be ready for a surprise, keep reading even if the command fails)
-```bash
-> mlflow run https://github.com/[your github username]/nd0821-c2-build-model-workflow-starter.git \
-             -v [the version you want to use, like 1.0.0] \
-             -P hydra_options="etl.sample='sample2.csv'"
-```
-
-**_NOTE_**: the file ``sample2.csv`` contains more data than ``sample1.csv`` so the training will
-            be a little slower.
-
-But, wait! It failed! The test ``test_proper_boundaries`` failed, apparently there is one point
-which is outside of the boundaries. This is an example of a "successful failure", i.e., a test that
-did its job and caught an unexpected event in the pipeline (in this case, in the data).
-
-You can fix this by adding these two lines in the ``basic_cleaning`` step just before saving the output 
-to the csv file with `df.to_csv`:
-
-```python
-idx = df['longitude'].between(-74.25, -73.50) & df['latitude'].between(40.5, 41.2)
-df = df[idx].copy()
-```
-This will drop rows in the dataset that are not in the proper geolocation. 
-
-Then commit your change, make a new release (for example ``1.0.1``) and retry (of course you need to use 
-``-v 1.0.1`` when calling mlflow this time). Now the run should succeed and voit la', 
-you have trained your new model on the new data.
+## Links
+- Wandb project link - [https://wandb.ai/zaxier/nyc_airbnb](https://wandb.ai/zaxier/nyc_airbnb)
+- GitHub repo link - [https://github.com/Zaxier/nyc_airbnb_regression]()
 
 ## License
 

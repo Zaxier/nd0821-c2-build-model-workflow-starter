@@ -13,7 +13,7 @@ _steps = [
     "data_check",
     "data_split",
     "train_random_forest",
-   "test_regression_model"
+    "test_regression_model"
 ]
 
 

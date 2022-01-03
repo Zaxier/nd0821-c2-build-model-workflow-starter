@@ -1,9 +1,15 @@
+"""
+Contains all data checking test functions for testing module (like pytest)
+"""
 import pandas as pd
 import numpy as np
 import scipy.stats
 
 
 def test_column_names(data):
+    """
+    Test that all column names are expected
+    """
 
     expected_colums = [
         "id",
@@ -31,6 +37,9 @@ def test_column_names(data):
 
 
 def test_neighborhood_names(data):
+    """
+    Test neighbourhood names
+    """
 
     known_names = ["Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"]
 
@@ -60,12 +69,15 @@ def test_similar_neigh_distrib(data: pd.DataFrame, ref_data: pd.DataFrame, kl_th
     assert scipy.stats.entropy(dist1, dist2, base=2) < kl_threshold
 
 
-########################################################
-# Implement here test_row_count and test_price_range   #
-########################################################
 def test_row_count(data: pd.DataFrame):
+    """
+    Test that the row count is in the expected range
+    """
     assert 1500 < data.shape[0] < 1000000
 
 
 def test_price_range(data: pd.DataFrame, min_price, max_price):
+    """
+    Test that price is in the expected range
+    """
     assert data['price'].between(min_price, max_price).all()
